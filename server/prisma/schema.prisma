@@ -1,0 +1,102 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ── Enums ──
+
+enum DeploymentStatus {
+  QUEUED
+  BUILDING
+  READY
+  FAILED
+}
+
+enum LogLevel {
+  INFO
+  WARN
+  ERROR
+}
+
+// ── User (synced from Supabase Auth) ──
+
+model User {
+  id          String       @id              // Supabase auth.users.id — NOT auto-generated
+  email       String       @unique
+  name        String?
+  avatarUrl   String?
+  provider    String       @default("email") // "email", "github", "google"
+  githubToken String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  projects    Project[]
+  deployments Deployment[]
+}
+
+// ── Project ──
+
+model Project {
+  id          String       @id @default(uuid())
+  name        String
+  repoUrl     String
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  userId      String
+  user        User         @relation(fields: [userId], references: [id])
+
+  deployments Deployment[]
+
+  @@unique([userId, name])
+  @@index([userId])
+}
+
+// ── Deployment ──
+
+model Deployment {
+  id            String           @id @default(uuid())
+  status        DeploymentStatus @default(QUEUED)
+  isActive      Boolean          @default(true)
+  rootDirectory String           @default("")
+  framework     String?
+  buildCommand  String?
+  installCommand String?
+  outputDir     String?
+  env           Json?
+  deploymentUrl String?
+  startedAt     DateTime?
+  completedAt   DateTime?
+  error         String?
+  createdAt     DateTime         @default(now())
+
+  // User relationship
+  userId        String?
+  user          User?            @relation(fields: [userId], references: [id])
+
+  // Project relationship
+  projectId     String
+  project       Project          @relation(fields: [projectId], references: [id])
+
+  logs          Log[]
+
+  @@index([userId])
+  @@index([projectId])
+}
+
+// ── Build Logs ──
+
+model Log {
+  id           String     @id @default(uuid())
+  deploymentId String
+  deployment   Deployment @relation(fields: [deploymentId], references: [id])
+  content      String
+  level        LogLevel   @default(INFO)
+  timestamp    DateTime   @default(now())
+
+  @@index([deploymentId])
+}

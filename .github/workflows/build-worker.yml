@@ -1,0 +1,42 @@
+name: Build Worker (Free Tier)
+
+on:
+  repository_dispatch:
+    types: [build]
+
+jobs:
+  build_and_deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Clone Target Repository
+        run: |
+          git clone ${{ github.event.client_payload.repoUrl }} ./target-app
+          cd ./target-app
+          # Framework detection logic can be added here or passed from API
+
+      - name: Build and Push to S3
+        env:
+          S3_ACCESS_KEY: ${{ secrets.S3_ACCESS_KEY }}
+          S3_SECRET_KEY: ${{ secrets.S3_SECRET_KEY }}
+          S3_ENDPOINT: ${{ secrets.S3_ENDPOINT }}
+          S3_BUCKET: ${{ secrets.S3_BUCKET }}
+          DEPLOYMENT_ID: ${{ github.event.client_payload.deploymentId }}
+        run: |
+          echo "Building project: $DEPLOYMENT_ID"
+          # This mimics the worker-standalone.js logic but runs in a GitHub Runner
+          # 1. npm install
+          # 2. npm run build
+          # 3. aws s3 sync dist/ s3://$S3_BUCKET/$DEPLOYMENT_ID --endpoint-url $S3_ENDPOINT
+          # (Requires AWS CLI or a sync tool)
+
+      - name: Notify API Server
+        run: |
+          curl -X POST "${{ github.event.client_payload.callbackUrl }}" \
+          -H "Content-Type: application/json" \
+          -d '{"deploymentId": "${{ github.event.client_payload.deploymentId }}", "status": "READY"}'

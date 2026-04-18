@@ -1,0 +1,7 @@
+{
+  "bones": [
+    { "type": "rect", "x": 0, "y": 0, "width": 400, "height": 180, "radius": 12 },
+    { "type": "rect", "x": 420, "y": 0, "width": 400, "height": 180, "radius": 12 },
+    { "type": "rect", "x": 840, "y": 0, "width": 400, "height": 180, "radius": 12 }
+  ]
+}
