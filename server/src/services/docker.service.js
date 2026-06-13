@@ -88,7 +88,24 @@ const buildLocally = async (deploymentId, { rootDirectory, buildCommand, install
         await fs.ensureDir(localDest);
         
         if (await fs.pathExists(outputSource)) {
-            await fs.copy(outputSource, localDest);
+            const resolvedSource = path.resolve(outputSource);
+            const resolvedDest = path.resolve(localDest);
+
+            if (resolvedDest.startsWith(resolvedSource)) {
+                // Destination is a subdirectory of the source (e.g. copying root folder '.' into './output')
+                // Copy items individually, skipping the destination folder itself, node_modules, git, and github folders.
+                const items = await fs.readdir(resolvedSource);
+                for (const item of items) {
+                    const itemSrc = path.join(resolvedSource, item);
+                    const itemDest = path.join(resolvedDest, item);
+                    if (itemSrc === resolvedDest || item === 'node_modules' || item === '.git' || item === '.github') {
+                        continue;
+                    }
+                    await fs.copy(itemSrc, itemDest);
+                }
+            } else {
+                await fs.copy(outputSource, localDest);
+            }
         } else {
             // Fallback: try common output dirs if the specified one doesn't exist
             const fallbacks = ['dist', 'build', 'out', 'public'];
@@ -97,7 +114,20 @@ const buildLocally = async (deploymentId, { rootDirectory, buildCommand, install
                 const fbPath = path.join(buildCwd, fb);
                 if (await fs.pathExists(fbPath)) {
                     await logBuildStep(deploymentId, `Found output in fallback directory: ${fb}`);
-                    await fs.copy(fbPath, localDest);
+                    const resolvedFb = path.resolve(fbPath);
+                    if (resolvedDest.startsWith(resolvedFb)) {
+                        const items = await fs.readdir(resolvedFb);
+                        for (const item of items) {
+                            const itemSrc = path.join(resolvedFb, item);
+                            const itemDest = path.join(resolvedDest, item);
+                            if (itemSrc === resolvedDest || item === 'node_modules' || item === '.git' || item === '.github') {
+                                continue;
+                            }
+                            await fs.copy(itemSrc, itemDest);
+                        }
+                    } else {
+                        await fs.copy(fbPath, localDest);
+                    }
                     copied = true;
                     break;
                 }
