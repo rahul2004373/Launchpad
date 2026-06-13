@@ -5,7 +5,123 @@ import { logBuildStep, logMultipleLines } from './log.service.js';
 import logger from '../utils/logger.js';
 
 /**
- * Builds a project inside a Docker container using the framework adapter.
+ * Check if the Docker CLI is available on the system.
+ */
+const checkDockerAvailable = () => {
+    return new Promise((resolve, reject) => {
+        const child = spawn('docker', ['--version'], { shell: false });
+        child.on('error', (err) => {
+            reject(err);
+        });
+        child.on('close', (code) => {
+            if (code === 0) {
+                resolve();
+            } else {
+                reject(new Error('Docker CLI exited with non-zero code'));
+            }
+        });
+    });
+};
+
+/**
+ * Execute a local shell command and stream stdout/stderr to build logs.
+ */
+const runLocalCommand = (commandString, cwd, deploymentId, env = {}) => {
+    return new Promise((resolve, reject) => {
+        const child = spawn(commandString, {
+            shell: true,
+            cwd,
+            env: { ...process.env, ...env, CI: 'true' }
+        });
+
+        child.stdout.on('data', (data) => {
+            logMultipleLines(deploymentId, data, 'INFO');
+        });
+
+        child.stderr.on('data', (data) => {
+            logMultipleLines(deploymentId, data, 'INFO');
+        });
+
+        child.on('close', (code) => {
+            if (code === 0) {
+                resolve();
+            } else {
+                reject(new Error(`Command failed with code [${code}]: ${commandString}`));
+            }
+        });
+
+        child.on('error', (err) => {
+            reject(new Error(`Failed to start command: ${err.message}`));
+        });
+    });
+};
+
+/**
+ * Fallback builder that executes npm install / npm run build locally when Docker is unavailable.
+ */
+const buildLocally = async (deploymentId, { rootDirectory, buildCommand, installCommand, adapter, env = {} }) => {
+    const projectPath = path.resolve('temp', deploymentId);
+    const buildCwd = path.join(projectPath, rootDirectory || '');
+    
+    await logBuildStep(deploymentId, '⚠️ Docker not detected in environment. Falling back to local Node.js builder...');
+    
+    try {
+        // 1. Run install command
+        const finalInstallCommand = installCommand !== undefined && installCommand !== null ? installCommand : adapter.installCommand;
+        if (finalInstallCommand) {
+            await logBuildStep(deploymentId, `📦 Installing dependencies with: ${finalInstallCommand}`);
+            await runLocalCommand(finalInstallCommand, buildCwd, deploymentId, env);
+        }
+        
+        // 2. Run build command
+        const finalBuildCommand = buildCommand !== undefined && buildCommand !== null ? buildCommand : adapter.buildCommand;
+        if (finalBuildCommand) {
+            await logBuildStep(deploymentId, `🏗️ Building project with: ${finalBuildCommand}`);
+            await runLocalCommand(finalBuildCommand, buildCwd, deploymentId, env);
+        }
+        
+        // 3. Move output files to output folder
+        const rawOutputDir = adapter.outputDir || 'dist';
+        const outputSource = path.join(buildCwd, rawOutputDir);
+        const localDest = path.join(projectPath, 'output');
+        
+        await fs.ensureDir(localDest);
+        
+        if (await fs.pathExists(outputSource)) {
+            await fs.copy(outputSource, localDest);
+        } else {
+            // Fallback: try common output dirs if the specified one doesn't exist
+            const fallbacks = ['dist', 'build', 'out', 'public'];
+            let copied = false;
+            for (const fb of fallbacks) {
+                const fbPath = path.join(buildCwd, fb);
+                if (await fs.pathExists(fbPath)) {
+                    await logBuildStep(deploymentId, `Found output in fallback directory: ${fb}`);
+                    await fs.copy(fbPath, localDest);
+                    copied = true;
+                    break;
+                }
+            }
+            if (!copied) {
+                throw new Error(`Build output folder not found. Expected output directory: ${rawOutputDir}`);
+            }
+        }
+        
+        // 4. Validate output
+        const validation = await adapter.validate(localDest);
+        if (!validation.valid) {
+            throw new Error(validation.warnings.join(', '));
+        }
+        
+        return { success: true, localPath: localDest };
+    } catch (err) {
+        throw new Error(`Local build failed: ${err.message}`);
+    }
+};
+
+/**
+ * Builds a project inside a Docker container using the framework adapter,
+ * with a fallback to local build if Docker is not installed in the runtime environment.
  *
  * @param {string} deploymentId
  * @param {Object} options
@@ -17,6 +133,13 @@ import logger from '../utils/logger.js';
  * @returns {{ success: boolean, localPath: string }}
  */
 export const buildInDocker = async (deploymentId, { rootDirectory, buildCommand, installCommand, githubToken, adapter, env = {} }) => {
+    try {
+        await checkDockerAvailable();
+    } catch (err) {
+        // Docker is missing (e.g. Render runtime) — fallback to local build
+        return buildLocally(deploymentId, { rootDirectory, buildCommand, installCommand, adapter, env });
+    }
+
     const projectPath   = path.resolve('temp', deploymentId);
     await fs.ensureDir(projectPath);
 
