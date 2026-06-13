@@ -15,13 +15,18 @@ export const authenticate = async (req, res, next) => {
         return next();
     }
     try {
+        let token;
         const authHeader = req.headers.authorization;
 
-        if (!authHeader || !authHeader.startsWith('Bearer ')) {
-            throw new AppError('Missing or invalid Authorization header. Use: Bearer <token>', 401);
+        if (authHeader && authHeader.startsWith('Bearer ')) {
+            token = authHeader.split(' ')[1];
+        } else if (req.query.token) {
+            token = req.query.token;
         }
 
-        const token = authHeader.split(' ')[1];
+        if (!token) {
+            throw new AppError('Missing or invalid Authorization header. Use: Bearer <token> or query parameter ?token=<token>', 401);
+        }
 
         // Verify token with Supabase Auth server
         // getUser() validates the token AND checks if the session is still active

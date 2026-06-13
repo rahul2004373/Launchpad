@@ -16,7 +16,7 @@ import logger from '../utils/logger.js';
  * @param {Object} options.pkg - package.json contents
  * @returns {{ success: boolean, localPath: string }}
  */
-export const buildInDocker = async (deploymentId, { rootDirectory, buildCommand, installCommand, githubToken, adapter }) => {
+export const buildInDocker = async (deploymentId, { rootDirectory, buildCommand, installCommand, githubToken, adapter, env = {} }) => {
     const projectPath   = path.resolve('temp', deploymentId);
     await fs.ensureDir(projectPath);
 
@@ -30,12 +30,19 @@ export const buildInDocker = async (deploymentId, { rootDirectory, buildCommand,
             rootDirectory,
             buildCommand,
             installCommand,
+            env,
         });
 
         await fs.writeFile(dockerfilePath, dockerfileContent);
 
         // 2. Build the Docker image
-        const buildArgs = ['build', '--no-cache', '-t', imageName, '-f', dockerfilePath];
+        const buildArgs = ['build', '--no-cache', '--progress=plain', '-t', imageName, '-f', dockerfilePath];
+        
+        // Add custom environment variables as build args
+        Object.entries(env).forEach(([key, value]) => {
+            buildArgs.push('--build-arg', `${key}=${value}`);
+        });
+
         if (githubToken) {
             buildArgs.push('--build-arg', `GITHUB_TOKEN=${githubToken}`);
         }

@@ -48,13 +48,29 @@ function Router() {
   );
 }
 
+// Detect the base path from the actual URL at runtime
+// This safely handles subfolder deployments (like S3 UUIDs) without breaking local routing
+const getBase = () => {
+  const pathname = window.location.pathname;
+  
+  // Look for a standard UUID v4 pattern in the first path segment
+  const uuidRegex = /^\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i;
+  const match = pathname.match(uuidRegex);
+  
+  if (match) {
+    return match[0]; // e.g. "/d34a9541-6f79-4a8d-86c4-7076b2aadcb8"
+  }
+  
+  return "/"; // Default for localhost and standard hosting
+};
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <ThemeProvider>
           <TooltipProvider>
-            <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+            <WouterRouter base={getBase()}>
               <Router />
             </WouterRouter>
             <Toaster />

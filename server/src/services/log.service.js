@@ -160,4 +160,3 @@ export const getDeploymentLogs = async (deploymentId) => {
         logs,
     };
 };
-

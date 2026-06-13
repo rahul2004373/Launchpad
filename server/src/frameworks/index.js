@@ -1,24 +1,11 @@
-/**
- * Framework Registry
- * 
- * ┌─────────────────────────────────────────────────────────┐
- * │  HOW TO ADD A NEW FRAMEWORK:                            │
- * │  1. Create a new file in /frameworks/ (e.g. angular.js) │
- * │  2. Extend BaseFrameworkAdapter                         │
- * │  3. Import and push it into the `adapters` array below  │
- * │  That's it. No other files need changing.               │
- * └─────────────────────────────────────────────────────────┘
- */
-import fs from 'fs-extra';
-import path from 'path';
-import { CRAAdapter } from './cra.js';
-import { ViteAdapter } from './vite.js';
+import fs from "fs-extra";
+import path from "path";
+import { CRAAdapter } from "./cra.js";
+import { ViteAdapter } from "./vite.js";
+import { StaticAdapter } from "./static.js";
 
 // ── Register only supported adapters ──
-const adapters = [
-    new CRAAdapter(),
-    new ViteAdapter(),
-];
+const adapters = [new CRAAdapter(), new ViteAdapter(), new StaticAdapter()];
 
 /**
  * Detect which framework a project uses and return its adapter
@@ -26,22 +13,22 @@ const adapters = [
  * @returns {Promise<{ adapter: BaseFrameworkAdapter, pkg: Object } | null>}
  */
 export const resolveFramework = async (projectPath) => {
-    const pkgPath = path.join(projectPath, 'package.json');
+  const pkgPath = path.join(projectPath, "package.json");
 
-    if (!await fs.pathExists(pkgPath)) {
-        return null;
+  if (!(await fs.pathExists(pkgPath))) {
+    return { adapter: new StaticAdapter(), pkg: {} };
+  }
+
+  const pkg = await fs.readJson(pkgPath);
+  const deps = { ...pkg.dependencies, ...pkg.devDependencies };
+
+  for (const adapter of adapters) {
+    if (adapter.name !== "static" && adapter.detect(deps, pkg)) {
+      return { adapter, pkg };
     }
+  }
 
-    const pkg = await fs.readJson(pkgPath);
-    const deps = { ...pkg.dependencies, ...pkg.devDependencies };
-
-    for (const adapter of adapters) {
-        if (adapter.detect(deps, pkg)) {
-            return { adapter, pkg };
-        }
-    }
-
-    return null; // Unknown framework
+  return { adapter: new StaticAdapter(), pkg };
 };
 
 /**
@@ -50,5 +37,5 @@ export const resolveFramework = async (projectPath) => {
  * @returns {BaseFrameworkAdapter | undefined}
  */
 export const getAdapterByName = (name) => {
-    return adapters.find(a => a.name === name);
+  return adapters.find((a) => a.name === name);
 };

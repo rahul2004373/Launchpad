@@ -69,7 +69,7 @@ export default function DeploymentsPage() {
               <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-md">{deployments.length}</span>
             </div>
             <div className="flex items-center gap-3">
-                <div className="relative">
+                <div className="relative hidden sm:block">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <Input
                     placeholder="Search your projects..."
@@ -86,6 +86,13 @@ export default function DeploymentsPage() {
                     <span className="text-[11px]">⌘</span>K
                   </div>
                 </div>
+                <Button asChild size="sm" className="h-10 px-3 sm:px-4 text-xs font-bold gap-1.5 sm:gap-2 bg-foreground text-background hover:bg-foreground/90 transition-all rounded-md">
+                  <Link href="/deploy/new">
+                    <Plus className="w-4 h-4" />
+                    <span className="hidden xs:inline">New Deployment</span>
+                    <span className="xs:hidden">New</span>
+                  </Link>
+                </Button>
               </div>
             </div>
 

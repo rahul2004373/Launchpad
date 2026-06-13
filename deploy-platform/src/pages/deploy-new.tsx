@@ -12,7 +12,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form";
 import Navbar from "@/components/layout/Navbar";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
@@ -38,6 +38,7 @@ const urlSchema = z.object({
 export default function DeployNewPage() {
   const [, setLocation] = useLocation();
   const [repoSearch, setRepoSearch] = useState("");
+  const queryClient = useQueryClient();
 
   const { toast } = useToast();
   const { session } = useAuth();
@@ -51,19 +52,39 @@ export default function DeployNewPage() {
   useEffect(() => {
     if (session?.provider_token) {
       api.post('/github/connect', { providerToken: session.provider_token })
-        .then(() => toast({ title: "GitHub Connected!" }))
+        .then(() => {
+          toast({ title: "GitHub Connected!" });
+          queryClient.invalidateQueries({ queryKey: ['github-status'] });
+          queryClient.invalidateQueries({ queryKey: ['github-repos'] });
+        })
         .catch(() => {});
     }
-  }, [session, toast]);
+  }, [session, toast, queryClient]);
 
-  const { data: repos = [], isLoading } = useQuery<GithubRepo[]>({
+  const { data: connectionStatus, isLoading: isStatusLoading } = useQuery<{ isConnected: boolean }>({
+    queryKey: ['github-status'],
+    queryFn: async () => {
+      const res = await api.get('/github/status');
+      return res.data.data;
+    },
+    refetchOnWindowFocus: false,
+  });
+
+  const { data: repos = [], isLoading: isReposLoading, isError: isReposError } = useQuery<GithubRepo[]>({
     queryKey: ['github-repos'],
     queryFn: async () => {
       const res = await api.get('/github/repos');
       return res.data.data;
     },
-    retry: false, // Don't retry if not connected
+    enabled: !!connectionStatus?.isConnected,
+    retry: false,
+    refetchOnWindowFocus: false,
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
+
+  // User is considered disconnected if the DB says so, OR if fetching repos failed (token revoked)
+  const isDisconnected = (connectionStatus && !connectionStatus.isConnected) || isReposError;
+  const isLoading = isStatusLoading || (connectionStatus?.isConnected && isReposLoading && !isReposError);
 
   const filteredRepos = repos.filter((r) =>
     r.name.toLowerCase().includes(repoSearch.toLowerCase())
@@ -83,7 +104,7 @@ export default function DeployNewPage() {
     setLocation(`/deploy/config?repoUrl=${encodeURIComponent(repo.cloneUrl)}&name=${encodeURIComponent(repo.name)}`);
   };
 
-  const onUrlSubmit = (data: typeof form.getValues extends () => infer R ? R : any) => {
+  const onUrlSubmit = (data: any) => {
     setLocation(`/deploy/config?repoUrl=${encodeURIComponent(data.url as string)}`);
   };
 
@@ -105,31 +126,9 @@ export default function DeployNewPage() {
             </div>
           </div>
 
-          {/* GitHub connect banner - hide if session exists */}
-          {!session?.provider_token && (
-            <div className="bg-card border border-border rounded-lg p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
-              <div className="flex items-start gap-3">
-                <SiGithub className="w-5 h-5 text-foreground shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-sm font-semibold text-foreground">Import from GitHub</p>
-                  <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">Connect your account to browse and import your private repositories with one click.</p>
-                </div>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleConnect}
-                className="gap-2 shrink-0 h-9 font-bold text-[11px] px-4"
-                data-testid="button-connect-github-import"
-              >
-                CONNECT GITHUB
-              </Button>
-            </div>
-          )}
-
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Panel A: GitHub repos */}
-            <div className="bg-card border border-border rounded-lg overflow-hidden flex flex-col">
+            <div className="bg-card border border-border rounded-lg overflow-hidden flex flex-col min-h-[400px]">
               <div className="p-4 border-b border-border bg-muted/20">
                 <h2 className="text-[10px] uppercase tracking-widest font-black mb-3 text-muted-foreground">Select Repository</h2>
                 <div className="relative">
@@ -141,17 +140,19 @@ export default function DeployNewPage() {
                     className="pl-9 text-xs h-9 bg-background border-border"
                     autoComplete="off"
                     data-testid="input-repo-search"
+                    disabled={!connectionStatus?.isConnected}
                   />
                 </div>
               </div>
-              <ScrollArea className="h-80">
+
+              <ScrollArea className="flex-1">
                 <div>
                   {isLoading ? (
                     <div className="space-y-1 p-2">
-                       {[1, 2, 3, 4, 5, 6].map((i) => (
+                       {[1, 2, 3, 4, 5].map((i) => (
                          <div key={i} className="flex items-center justify-between px-2 py-3">
                            <div className="flex items-center gap-3">
-                             <Skeleton className="h-4 w-4 w-4" />
+                             <Skeleton className="h-4 w-4 rounded-full" />
                              <div className="space-y-1">
                                <Skeleton className="h-4 w-32" />
                                <Skeleton className="h-3 w-20" />
@@ -161,23 +162,41 @@ export default function DeployNewPage() {
                          </div>
                        ))}
                     </div>
+                  ) : isDisconnected ? (
+                    <div className="flex flex-col items-center justify-center h-[300px] p-6 text-center">
+                      <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-4">
+                        <SiGithub className="w-6 h-6 text-foreground" />
+                      </div>
+                      <h3 className="text-sm font-semibold mb-2">GitHub not connected</h3>
+                      <p className="text-xs text-muted-foreground mb-6 max-w-[200px]">
+                        Connect your GitHub account to import and deploy your repositories.
+                      </p>
+                      <Button
+                        onClick={handleConnect}
+                        className="w-full gap-2 font-bold text-[11px] uppercase tracking-wider h-10"
+                        data-testid="button-connect-github-panel"
+                      >
+                        <SiGithub className="w-3.5 h-3.5" />
+                        Connect with GitHub
+                      </Button>
+                    </div>
                   ) : filteredRepos.length > 0 ? (
                     filteredRepos.map((repo, i) => (
                       <div key={repo.id}>
                         <div className="flex items-center justify-between px-4 py-3 hover:bg-muted/30 transition-colors">
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <GitBranch className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                            <div className="min-w-0">
+                          <div className="flex items-center gap-3 min-w-0 flex-1 pr-4">
+                            <GitBranch className="w-4 h-4 text-muted-foreground shrink-0" />
+                            <div className="min-w-0 flex-1 space-y-1">
                               <p className="text-sm font-mono text-foreground truncate">{repo.fullName}</p>
-                              <p className="text-xs text-muted-foreground mt-0.5">Updated {new Date(repo.updatedAt).toLocaleDateString()}</p>
+                              <p className="text-xs text-muted-foreground">Updated {new Date(repo.updatedAt).toLocaleDateString()}</p>
                             </div>
                           </div>
                           <Button
                             size="sm"
                             variant="ghost"
                             onClick={() => handleImport(repo)}
-                            className="text-xs shrink-0 gap-1"
-                            data-testid={`button-import-${i}`}
+                            className="text-xs shrink-0 h-7 px-3 gap-1"
+                            data-testid={`btn-select-repo-${i}`}
                           >
                             Import
                             <ArrowRight className="w-3 h-3" />
@@ -187,8 +206,8 @@ export default function DeployNewPage() {
                       </div>
                     ))
                   ) : (
-                    <div className="text-center py-10 text-muted-foreground text-sm">
-                      {repos.length === 0 ? "No GitHub account connected." : "No repos found."}
+                    <div className="text-center py-20 text-muted-foreground text-sm">
+                      No repositories found.
                     </div>
                   )}
                 </div>

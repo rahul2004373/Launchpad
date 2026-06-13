@@ -1,7 +1,7 @@
-import * as githubService from '../services/github.service.js';
-import { sendResponse } from '../utils/responseHandler.js';
-import { asyncHandler } from '../middleware/asyncHandler.js';
-import AppError from '../utils/AppError.js';
+import * as githubService from "../services/github.service.js";
+import { sendResponse } from "../utils/responseHandler.js";
+import { asyncHandler } from "../middleware/asyncHandler.js";
+import AppError from "../utils/AppError.js";
 
 /**
  * POST /api/github/connect
@@ -9,15 +9,15 @@ import AppError from '../utils/AppError.js';
  * and saves it permanently to the User's database profile.
  */
 export const connectGithub = asyncHandler(async (req, res) => {
-    const { providerToken } = req.body;
+  const { providerToken } = req.body;
 
-    if (!providerToken) {
-        throw new AppError('Provider token is required', 400);
-    }
+  if (!providerToken) {
+    throw new AppError("Provider token is required", 400);
+  }
 
-    await githubService.saveGithubToken(req.user.id, providerToken);
+  await githubService.saveGithubToken(req.user.id, providerToken);
 
-    sendResponse(res, 200, 'Successfully connected GitHub account');
+  sendResponse(res, 200, "Successfully connected GitHub account");
 });
 
 /**
@@ -26,8 +26,17 @@ export const connectGithub = asyncHandler(async (req, res) => {
  * using the integration token stored in the database.
  */
 export const listGithubRepos = asyncHandler(async (req, res) => {
-    const repos = await githubService.fetchUserRepos(req.user.id);
-    sendResponse(res, 200, 'Fetched GitHub repositories successfully', repos);
+  const repos = await githubService.fetchUserRepos(req.user.id);
+  sendResponse(res, 200, "Fetched GitHub repositories successfully", repos);
+});
+
+/**
+ * GET /api/github/status
+ * Checks if the user has a GitHub token stored.
+ */
+export const getGithubStatus = asyncHandler(async (req, res) => {
+  const isConnected = await githubService.checkConnectionStatus(req.user.id);
+  sendResponse(res, 200, "GitHub connection status fetched", { isConnected });
 });
 
 /**
@@ -35,6 +44,6 @@ export const listGithubRepos = asyncHandler(async (req, res) => {
  * Removes the GitHub token from the user profile.
  */
 export const disconnectGithub = asyncHandler(async (req, res) => {
-    await githubService.disconnectGithub(req.user.id);
-    sendResponse(res, 200, 'Successfully disconnected GitHub account');
+  await githubService.disconnectGithub(req.user.id);
+  sendResponse(res, 200, "Successfully disconnected GitHub account");
 });

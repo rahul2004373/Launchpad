@@ -55,7 +55,7 @@ export default function LoginPage() {
           password: data.password,
         });
         if (error) throw error;
-        setLocation("/deployments");
+        setLocation("/deploy/new");
       }
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
@@ -68,7 +68,7 @@ export default function LoginPage() {
     await supabase.auth.signInWithOAuth({
       provider,
       options: {
-        redirectTo: `${window.location.origin}/deployments`
+        redirectTo: `${window.location.origin}/deploy/new`
       }
     });
   };

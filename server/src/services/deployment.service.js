@@ -16,6 +16,7 @@ export const initiateDeployment = async (payload) => {
     buildCommand = null,
     installCommand = null,
     outputDir = null,
+    framework = null,
     userId,
   } = payload;
 
@@ -59,6 +60,7 @@ export const initiateDeployment = async (payload) => {
       buildCommand,
       installCommand,
       outputDir,
+      framework,
       projectId,
       userId,
     },
@@ -75,6 +77,7 @@ export const initiateDeployment = async (payload) => {
     buildCommand,
     installCommand,
     outputDir,
+    framework,
   });
 
   return {
@@ -119,6 +122,7 @@ export const fetchDeploymentStatus = async (id, userId) => {
     repoUrl: deployment.project?.repoUrl,
     framework: deployment.framework,
     deploymentUrl: deployment.deploymentUrl,
+    env: deployment.env,
     createdAt: deployment.createdAt,
     startedAt: deployment.startedAt,
     completedAt: deployment.completedAt,

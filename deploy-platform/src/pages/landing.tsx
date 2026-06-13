@@ -105,12 +105,7 @@ const techStack = [
   { name: "Cloudflare", Icon: SiCloudflare, color: "#f38020" },
 ];
 
-const stats = [
-  { value: "< 60s", label: "Average build time", sub: "p95" },
-  { value: "99.9%", label: "Uptime SLA", sub: "guaranteed" },
-  { value: "180+", label: "Edge locations", sub: "worldwide" },
-  { value: "10k+", label: "Deploys per day", sub: "and growing" },
-];
+
 
 const testimonials = [
   {
@@ -132,25 +127,7 @@ const testimonials = [
 
 
 
-/* ── stat card ──────────────────────────────────────────────────── */
-function StatCard({ value, label, sub, delay }: { value: string; label: string; sub: string; delay: number }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const inView = useInView(ref, { once: true });
-  return (
-    <div ref={ref} className="text-center">
-      <motion.div
-        initial={{ opacity: 0, scale: 0.9 }}
-        animate={inView ? { opacity: 1, scale: 1 } : {}}
-        transition={{ duration: 0.5, delay }}
-        className="text-4xl md:text-5xl font-bold text-foreground tracking-tight mb-1"
-      >
-        {value}
-      </motion.div>
-      <p className="text-sm font-medium text-foreground/70 mb-0.5">{label}</p>
-      <p className="text-xs text-muted-foreground">{sub}</p>
-    </div>
-  );
-}
+
 
 /* ── terminal mockup ─────────────────────────────────────────────── */
 const LOG_LINES = [
@@ -300,7 +277,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── How it works ───────────────────────────────────────── */}
-      <section className="py-28 px-6">
+      <section id="pipeline" className="py-28 px-6">
         <div className="max-w-[1280px] mx-auto">
           <ScrollReveal className="text-center mb-16">
             <p className="text-xs text-muted-foreground uppercase tracking-widest mb-3">Pipeline</p>
@@ -332,7 +309,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── Features grid ──────────────────────────────────────── */}
-      <section className="py-28 px-6 bg-muted/20 border-y border-border">
+      <section id="features" className="py-28 px-6 bg-muted/20 border-y border-border">
         <div className="max-w-[1280px] mx-auto">
           <ScrollReveal className="text-center mb-16">
             <p className="text-xs text-muted-foreground uppercase tracking-widest mb-3">Features</p>
@@ -356,23 +333,10 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── Stats ──────────────────────────────────────────────── */}
-      <section className="py-28 px-6">
-        <div className="max-w-[1280px] mx-auto">
-          <ScrollReveal className="text-center mb-16">
-            <p className="text-xs text-muted-foreground uppercase tracking-widest mb-3">Scale</p>
-            <h2 className="text-3xl font-bold tracking-tight">Numbers that matter</h2>
-          </ScrollReveal>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-10">
-            {stats.map((s, i) => (
-              <StatCard key={s.value} {...s} delay={i * 0.1} />
-            ))}
-          </div>
-        </div>
-      </section>
+
 
       {/* ── Frameworks ─────────────────────────────────────────── */}
-      <section className="py-20 px-6 border-y border-border bg-muted/20">
+      <section id="frameworks" className="py-20 px-6 border-y border-border bg-muted/20">
         <div className="max-w-[1280px] mx-auto">
           <ScrollReveal className="text-center mb-10">
             <p className="text-xs text-muted-foreground uppercase tracking-widest mb-3">Compatibility</p>

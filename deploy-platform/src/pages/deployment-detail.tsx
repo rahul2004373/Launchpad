@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
+import { supabase } from "@/lib/supabase";
 import { Link, useParams, useLocation } from "wouter";
 import { ArrowLeft, Copy, Check, ExternalLink, RefreshCw, MoreHorizontal, Trash2, Download, GitBranch } from "lucide-react";
 import { SiGithub } from "react-icons/si";
@@ -66,18 +67,27 @@ export default function DeploymentDetailPage() {
     queryKey: ['deployment-logs', params.id],
     queryFn: async () => {
       const res = await api.get(`/deployments/${params.id}/logs`);
-      return res.data.data.logs.map((l: any) => ({
+      return res.data.data;
+    },
+    refetchInterval: (q) => {
+      const state = q.state.data?.deployment?.status;
+      return state === "READY" || state === "FAILED" ? false : 3000;
+    },
+    enabled: !!params.id
+  });
+
+  // Logs State
+  const [logs, setLogs] = useState<{ ts: string; level: "INFO" | "WARN" | "ERROR"; msg: string }[]>([]);
+
+  useEffect(() => {
+    if (logsData?.logs) {
+      setLogs(logsData.logs.map((l: any) => ({
         ts: l.timestamp,
         level: l.level,
         msg: l.content
-      }));
-    },
-    refetchInterval: (q) => {
-      const state = deployment?.status;
-      return state === "READY" || state === "FAILED" ? false : 3000;
-    },
-    enabled: !!deployment // fetch logs when deploymnt is loaded
-  });
+      })));
+    }
+  }, [logsData]);
 
   const projectName = deployment?.projectName || "Unknown Project";
   const deploymentUrl = deployment?.deploymentUrl || "";
@@ -271,7 +281,7 @@ export default function DeploymentDetailPage() {
                     href={deploymentUrl.startsWith('http') ? deploymentUrl : `https://${deploymentUrl}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="font-mono text-sm text-muted-foreground hover:text-foreground transition-colors"
+                    className="font-mono text-xs sm:text-sm text-muted-foreground hover:text-foreground transition-colors truncate max-w-[80vw] sm:max-w-none block"
                     data-testid="link-deployment-url"
                   >
                     {deploymentUrl}
@@ -326,7 +336,7 @@ export default function DeploymentDetailPage() {
             </TabsList>
 
           <TabsContent value="logs">
-            <LogViewer logs={logsData || []} />
+            <LogViewer logs={logs} />
           </TabsContent>
 
             <TabsContent value="build">
@@ -348,23 +358,27 @@ export default function DeploymentDetailPage() {
                 <div className="border-t border-border pt-6">
                   <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold mb-3">Environment Variables</p>
                   <div className="space-y-2.5">
-                    {ENV_VARS.map(({ key, value }, i) => (
-                      <div key={key} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 font-mono text-xs">
-                        <span className="text-foreground/70 w-32 shrink-0">{key}</span>
-                        <div className="flex items-center gap-2 flex-1 min-w-0">
-                          <span className="text-muted-foreground truncate">
-                            {shownEnvKeys.has(i) ? value : "•".repeat(12)}
-                          </span>
-                          <button
-                            onClick={() => toggleEnv(i)}
-                            className="text-muted-foreground/40 hover:text-foreground transition-colors text-[10px] uppercase font-bold"
-                            data-testid={`button-toggle-env-${i}`}
-                          >
-                            [{shownEnvKeys.has(i) ? "hide" : "show"}]
-                          </button>
+                    {deployment?.env && Object.entries(deployment.env).length > 0 ? (
+                      Object.entries(deployment.env).map(([key, value], i) => (
+                        <div key={key} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 font-mono text-xs">
+                          <span className="text-foreground/70 w-32 shrink-0">{key}</span>
+                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                            <span className="text-muted-foreground truncate">
+                              {shownEnvKeys.has(i) ? String(value) : "•".repeat(12)}
+                            </span>
+                            <button
+                              onClick={() => toggleEnv(i)}
+                              className="text-muted-foreground/40 hover:text-foreground transition-colors text-[10px] uppercase font-bold"
+                              data-testid={`button-toggle-env-${i}`}
+                            >
+                              [{shownEnvKeys.has(i) ? "hide" : "show"}]
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      ))
+                    ) : (
+                      <p className="text-[10px] text-muted-foreground italic">No environment variables configured for this deployment.</p>
+                    )}
                   </div>
                 </div>
               </div>

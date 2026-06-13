@@ -1,6 +1,6 @@
-import express from 'express';
-import * as githubController from '../controllers/github.controller.js';
-import { authenticate } from '../middleware/auth.js';
+import express from "express";
+import * as githubController from "../controllers/github.controller.js";
+import { authenticate } from "../middleware/auth.js";
 
 const router = express.Router();
 
@@ -8,12 +8,15 @@ const router = express.Router();
 router.use(authenticate);
 
 // Link GitHub (Save provider token)
-router.post('/connect', githubController.connectGithub);
+router.post("/connect", githubController.connectGithub);
+
+// Check GitHub connection status
+router.get("/status", githubController.getGithubStatus);
 
 // Fetch repositories using stored token
-router.get('/repos', githubController.listGithubRepos);
+router.get("/repos", githubController.listGithubRepos);
 
 // Unlink GitHub
-router.delete('/disconnect', githubController.disconnectGithub);
+router.delete("/disconnect", githubController.disconnectGithub);
 
 export default router;

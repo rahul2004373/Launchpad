@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLocation, Link } from "wouter";
-import { ArrowLeft, Rocket, GitBranch, ChevronDown } from "lucide-react";
+import { ArrowLeft, Rocket, GitBranch, ChevronDown, Plus, Trash2, X, Key } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +21,11 @@ import Navbar from "@/components/layout/Navbar";
 import { api } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 
+type EnvVar = {
+  key: string;
+  value: string;
+};
+
 export default function DeployConfigPage() {
   const [, setLocation] = useLocation();
   const searchParams = new URLSearchParams(window.location.search);
@@ -33,14 +38,38 @@ export default function DeployConfigPage() {
   const [outputDir, setOutputDir] = useState("dist");
   const [installCmd, setInstallCmd] = useState("npm install");
   const [rootDir, setRootDir] = useState("./");
+  const [envVars, setEnvVars] = useState<EnvVar[]>([{ key: "", value: "" }]);
+  const [framework, setFramework] = useState<"vite" | "cra" | "static">("vite");
   const [isDeploying, setIsDeploying] = useState(false);
   const { toast } = useToast();
+
+  const addEnvVar = () => {
+    setEnvVars([...envVars, { key: "", value: "" }]);
+  };
+
+  const removeEnvVar = (index: number) => {
+    setEnvVars(envVars.filter((_, i) => i !== index));
+  };
+
+  const updateEnvVar = (index: number, field: keyof EnvVar, value: string) => {
+    const next = [...envVars];
+    next[index][field] = value;
+    setEnvVars(next);
+  };
 
   const handleDeploy = async () => {
     if (!initialRepoUrl) {
       toast({ title: "Error", description: "Missing repository URL", variant: "destructive" });
       return;
     }
+
+    // Convert array to object
+    const envObject = envVars.reduce((acc, curr) => {
+      if (curr.key.trim()) {
+        acc[curr.key.trim()] = curr.value.trim();
+      }
+      return acc;
+    }, {} as Record<string, string>);
 
     setIsDeploying(true);
     try {
@@ -69,7 +98,9 @@ export default function DeployConfigPage() {
         rootDirectory: rootDir,
         buildCommand: buildCommand,
         installCommand: installCmd,
-        outputDir: outputDir
+        outputDir: outputDir,
+        framework: framework,
+        env: envObject
       });
 
       setLocation(`/deployments/${depRes.data.data.deploymentId}`);
@@ -98,43 +129,21 @@ export default function DeployConfigPage() {
           </div>
 
           {/* Repo header */}
-          <div className="bg-card border border-border rounded-lg p-5 mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex items-start gap-3 min-w-0">
-              <div className="w-8 h-8 rounded bg-muted/50 flex items-center justify-center shrink-0">
-                <GitBranch className="w-4 h-4 text-muted-foreground" />
+          <div className="bg-card border border-border rounded-lg p-5 mb-6">
+            <div className="min-w-0">
+              <p className="text-sm font-mono text-foreground truncate">{initialRepoUrl || "No repository selected"}</p>
+              <div className="flex items-center gap-2 mt-1">
+                <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">Branch</span>
+                <span className="text-[10px] text-foreground font-mono bg-muted px-1.5 py-0.5 rounded">main</span>
               </div>
-              <div className="min-w-0">
-                <p className="text-sm font-mono text-foreground truncate">{initialRepoUrl || "No repository selected"}</p>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">Branch</span>
-                  <span className="text-[10px] text-foreground font-mono bg-muted px-1.5 py-0.5 rounded">main</span>
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="text-[10px] text-muted-foreground uppercase font-black shrink-0">Switch</span>
-              <Select value={branch} onValueChange={setBranch}>
-                <SelectTrigger
-                  className="w-32 h-8 text-[11px] font-mono bg-background border-border"
-                  data-testid="select-branch"
-                >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="main" className="text-xs font-mono">main</SelectItem>
-                  <SelectItem value="develop" className="text-xs font-mono">develop</SelectItem>
-                  <SelectItem value="staging" className="text-xs font-mono">staging</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
           </div>
 
           {/* Accordion sections */}
-          <Accordion type="multiple" defaultValue={["project", "build"]} className="space-y-4">
+          <Accordion type="multiple" defaultValue={["project", "build", "env"]} className="space-y-4">
             <AccordionItem value="project" className="bg-card border border-border rounded-lg overflow-hidden border-b-0">
               <AccordionTrigger className="px-5 py-4 hover:no-underline hover:bg-muted/20 text-xs font-black uppercase tracking-widest text-muted-foreground [&[data-state=open]>svg]:rotate-180 border-b border-transparent data-[state=open]:border-border transition-all">
                 Project Settings
-                <ChevronDown className="w-4 h-4 text-muted-foreground transition-transform ml-auto mr-0 shrink-0" />
               </AccordionTrigger>
               <AccordionContent className="px-5 pt-6 pb-6">
                 <div className="space-y-6">
@@ -150,12 +159,31 @@ export default function DeployConfigPage() {
                   </div>
                   <div>
                     <label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground mb-2 block">Framework</label>
-                    <div className="flex items-center gap-2">
-                      <Badge className="bg-[#646cff]/10 text-[#646cff] border border-[#646cff]/20 text-[10px] uppercase font-black px-2 py-0.5 rounded">
-                        Vite
-                      </Badge>
-                      <span className="text-[10px] text-muted-foreground font-medium italic">Auto-detected from repository</span>
-                    </div>
+                    <Select value={framework} onValueChange={(val: "vite" | "cra" | "static") => {
+                      setFramework(val);
+                      if (val === "vite") {
+                        setBuildCommand("npm run build");
+                        setOutputDir("dist");
+                        setInstallCmd("npm install");
+                      } else if (val === "cra") {
+                        setBuildCommand("npm run build");
+                        setOutputDir("build");
+                        setInstallCmd("npm install");
+                      } else if (val === "static") {
+                        setBuildCommand("");
+                        setOutputDir(".");
+                        setInstallCmd("");
+                      }
+                    }}>
+                      <SelectTrigger className="w-56 h-10 text-xs bg-background border-border" data-testid="select-framework">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="vite" className="text-xs">Vite</SelectItem>
+                        <SelectItem value="cra" className="text-xs">Create React App</SelectItem>
+                        <SelectItem value="static" className="text-xs">Static HTML/JS/CSS</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
               </AccordionContent>
@@ -164,7 +192,6 @@ export default function DeployConfigPage() {
             <AccordionItem value="build" className="bg-card border border-border rounded-lg overflow-hidden border-b-0">
               <AccordionTrigger className="px-5 py-4 hover:no-underline hover:bg-muted/20 text-xs font-black uppercase tracking-widest text-muted-foreground [&[data-state=open]>svg]:rotate-180 border-b border-transparent data-[state=open]:border-border transition-all">
                 Build & Development Settings
-                <ChevronDown className="w-4 h-4 text-muted-foreground transition-transform ml-auto mr-0 shrink-0" />
               </AccordionTrigger>
               <AccordionContent className="px-5 pt-6 pb-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-6">
@@ -185,6 +212,61 @@ export default function DeployConfigPage() {
                       />
                     </div>
                   ))}
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+
+            <AccordionItem value="env" className="bg-card border border-border rounded-lg overflow-hidden border-b-0">
+              <AccordionTrigger className="px-5 py-4 hover:no-underline hover:bg-muted/20 text-xs font-black uppercase tracking-widest text-muted-foreground [&[data-state=open]>svg]:rotate-180 border-b border-transparent data-[state=open]:border-border transition-all">
+                Environment Variables
+              </AccordionTrigger>
+              <AccordionContent className="px-5 pt-6 pb-6">
+                <div className="space-y-4">
+                  <p className="text-[11px] text-muted-foreground leading-relaxed italic">
+                    Configure the environment variables that your application needs at build time (e.g. VITE_API_URL).
+                  </p>
+                  
+                  <div className="space-y-3">
+                    {envVars.map((v, i) => (
+                      <div key={i} className="flex items-center gap-2 group">
+                        <Input
+                          placeholder="VARIABLE_NAME"
+                          value={v.key}
+                          onChange={(e) => updateEnvVar(i, "key", e.target.value)}
+                          className="font-mono text-xs h-9 bg-background border-border uppercase"
+                          data-testid={`input-env-key-${i}`}
+                        />
+                        <Input
+                          placeholder="value"
+                          value={v.value}
+                          onChange={(e) => updateEnvVar(i, "value", e.target.value)}
+                          className="font-mono text-xs h-9 bg-background border-border"
+                          data-testid={`input-env-val-${i}`}
+                        />
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeEnvVar(i)}
+                          className="w-9 h-9 p-0 text-muted-foreground/30 hover:text-destructive transition-colors"
+                          disabled={envVars.length === 1 && !v.key && !v.value}
+                          data-testid={`button-remove-env-${i}`}
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={addEnvVar}
+                    className="w-full border-dashed border-border hover:border-foreground/50 hover:bg-muted/30 text-[10px] font-black uppercase tracking-widest gap-2 h-9"
+                    data-testid="button-add-env"
+                  >
+                    <Plus className="w-3 h-3" />
+                    Add Variable
+                  </Button>
                 </div>
               </AccordionContent>
             </AccordionItem>

@@ -10,23 +10,23 @@ import githubRoutes from "./routes/github.routes.js";
 
 const app = express();
 
-// ── Core Middleware ──
+// Core Middleware
 app.use(
   cors({
-    origin: "*", // Allows ANY website to call your API
+    origin: "*",
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   }),
 );
 app.use(express.json());
-app.use(httpLogger); // Log all HTTP requests & responses
+app.use(httpLogger);
 
-// ── Routes ──
+// Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/projects", projectRoutes);
 app.use("/api/deployments", deploymentRoutes);
 app.use("/api/github", githubRoutes);
 
-// ── Health Check ──
+//  Health Check
 app.get("/api/health", (req, res) => {
   res.json({
     status: "ok",

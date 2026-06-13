@@ -98,5 +98,5 @@ model Log {
   level        LogLevel   @default(INFO)
   timestamp    DateTime   @default(now())
 
-  @@index([deploymentId])
+  @@index([deploymentId, timestamp])
 }

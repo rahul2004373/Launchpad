@@ -1,6 +1,6 @@
 import { Link } from "wouter";
 import { GitBranch, ExternalLink } from "lucide-react";
-import { SiReact, SiVite, SiNextdotjs, SiVuedotjs } from "react-icons/si";
+import { SiReact, SiVite, SiNextdotjs, SiVuedotjs, SiHtml5 } from "react-icons/si";
 import StatusBadge from "./StatusBadge";
 import { Button } from "@/components/ui/button";
 
@@ -15,7 +15,7 @@ interface DeploymentCardProps {
   createdAt: string;
   branch: string;
   commitHash: string;
-  framework?: "react" | "vite" | "next" | "vue";
+  framework?: "react" | "vite" | "next" | "vue" | "static";
 }
 
 const frameworkIcons: Record<string, React.ReactNode> = {
@@ -23,6 +23,7 @@ const frameworkIcons: Record<string, React.ReactNode> = {
   vite: <SiVite className="w-3 h-3 text-[#646cff]" />,
   next: <SiNextdotjs className="w-3 h-3 text-foreground" />,
   vue: <SiVuedotjs className="w-3 h-3 text-[#4fc08d]" />,
+  static: <SiHtml5 className="w-3 h-3 text-[#e34f26]" />,
 };
 
 export default function DeploymentCard({

@@ -1,39 +1,60 @@
-/**
- * Base Framework Adapter
- * 
- * Every framework adapter must extend this interface.
- * To add a new framework, create a new file in /frameworks/ and register it in index.js.
- */
 export class BaseFrameworkAdapter {
-    /** @returns {string} Framework identifier (e.g., 'cra', 'vite') */
-    get name() { throw new Error('Not implemented'); }
+  /** @returns {string} Framework identifier (e.g., 'cra', 'vite') */
+  get name() {
+    throw new Error("Not implemented");
+  }
 
-    /** @returns {string} Human-readable display name */
-    get displayName() { throw new Error('Not implemented'); }
+  /** @returns {string} Human-readable display name */
+  get displayName() {
+    throw new Error("Not implemented");
+  }
 
-    /** @returns {string} Default build command */
-    get buildCommand() { return 'npm run build'; }
+  /** @returns {string} Default build command */
+  get buildCommand() {
+    return "npm run build";
+  }
 
-    /** @returns {string} Default output directory after build */
-    get outputDir() { throw new Error('Not implemented'); }
+  /** @returns {string} Default install command */
+  get installCommand() {
+    return "npm install";
+  }
 
-    /**
-     * Check if a project belongs to this framework based on dependency analysis.
-     */
-    detect(deps, pkg) { throw new Error('Not implemented'); }
+  /** @returns {string} Default output directory after build */
+  get outputDir() {
+    throw new Error("Not implemented");
+  }
 
-    /**
-     * Generate Dockerfile content for this framework.
-     */
-    generateDockerfile({ rootDirectory, buildCommand, installCommand }) {
-        const normalizedRoot = (rootDirectory || '').replace(/\\/g, '/').replace(/^\/|\/$/g, '');
-        const workDir = normalizedRoot ? `/app/${normalizedRoot}` : '/app';
-        const artifactSrc = normalizedRoot
-            ? `/app/${normalizedRoot}/${this.outputDir}`
-            : `/app/${this.outputDir}`;
+  /**
+   * Check if a project belongs to this framework based on dependency analysis.
+   */
+  detect(deps, pkg) {
+    throw new Error("Not implemented");
+  }
 
-        // Robust Patching via Base64 Helper Script
-        const patchContent = `
+  /**
+   * Generate Dockerfile content for this framework.
+   */
+  generateDockerfile({
+    rootDirectory,
+    buildCommand,
+    installCommand,
+    env = {},
+  }) {
+    const normalizedRoot = (rootDirectory || "")
+      .replace(/\\/g, "/")
+      .replace(/^\/|\/$/g, "");
+    const workDir = normalizedRoot ? `/app/${normalizedRoot}` : "/app";
+    const artifactSrc = normalizedRoot
+      ? `/app/${normalizedRoot}/${this.outputDir}`
+      : `/app/${this.outputDir}`;
+
+    // Generate ARG and ENV lines for custom environment variables
+    const envLines = Object.keys(env)
+      .map((key) => `ARG ${key}\nENV ${key}=$${key}`)
+      .join("\n");
+
+    // Robust Patching via Base64 Helper Script
+    const patchContent = `
 const fs = require('fs');
 // 1. Patch package.json (CRA + Generic)
 if (fs.existsSync('package.json')) {
@@ -55,38 +76,45 @@ if (viteFile) {
 }
         `.trim();
 
-        const b64Patch = Buffer.from(patchContent).toString('base64');
+    const b64Patch = Buffer.from(patchContent).toString("base64");
 
-        return `
+    return `
 FROM node:20-alpine AS builder
 RUN apk add --no-cache git
 WORKDIR /app
 COPY . .
 WORKDIR ${workDir}
+${envLines}
+ENV PORT=8080
+ENV BASE_PATH=/
 ENV PUBLIC_URL=.
 ENV VITE_BASE=./
 RUN echo "${b64Patch}" | base64 -d > patch-all.cjs && node patch-all.cjs && rm patch-all.cjs
-RUN ${installCommand || 'npm install'}
+RUN NODE_ENV=development ${installCommand || "npm install --production=false"}
+ENV NODE_ENV=production
 RUN ${buildCommand || this.buildCommand}
 
 FROM alpine
 WORKDIR /app
 COPY --from=builder ${artifactSrc} ./output
         `.trim();
-    }
+  }
 
-    /**
-     * Validate extracted build artifacts.
-     */
-    async validate(outputPath) {
-        const { default: fs } = await import('fs-extra');
-        const path = await import('path');
-        const indexPath = path.join(outputPath, 'index.html');
+  /**
+   * Validate extracted build artifacts.
+   */
+  async validate(outputPath) {
+    const { default: fs } = await import("fs-extra");
+    const path = await import("path");
+    const indexPath = path.join(outputPath, "index.html");
 
-        if (!await fs.pathExists(outputPath)) {
-            return { valid: false, warnings: [`Output folder not found at ${outputPath}`] };
-        }
-        const hasIndex = await fs.pathExists(indexPath);
-        return { valid: true, warnings: hasIndex ? [] : ['index.html missing'] };
+    if (!(await fs.pathExists(outputPath))) {
+      return {
+        valid: false,
+        warnings: [`Output folder not found at ${outputPath}`],
+      };
     }
+    const hasIndex = await fs.pathExists(indexPath);
+    return { valid: true, warnings: hasIndex ? [] : ["index.html missing"] };
+  }
 }

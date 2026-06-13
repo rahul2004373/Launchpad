@@ -10,7 +10,7 @@ import AppError from '../utils/AppError.js';
  */
 export const deployProject = asyncHandler(async (req, res) => {
     const { projectId } = req.params;
-    const { env, rootDirectory, buildCommand, installCommand, outputDir } = req.body;
+    const { env, rootDirectory, buildCommand, installCommand, outputDir, framework } = req.body;
 
     const result = await deploymentService.initiateDeployment({ 
         projectId,
@@ -19,6 +19,7 @@ export const deployProject = asyncHandler(async (req, res) => {
         buildCommand, 
         installCommand,
         outputDir,
+        framework,
         userId: req.user.id,
     });
 

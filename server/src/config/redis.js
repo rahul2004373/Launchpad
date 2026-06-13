@@ -6,9 +6,13 @@ import { fileURLToPath } from "url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.resolve(__dirname, "../../.env") });
 
-const connection = new IORedis(process.env.REDIS_URL, {
+const redisUrl =
+  process.env.REDIS_URL ||
+  "rediss://default:gQAAAAAAAXYaAAIncDJjNTVhM2NiYzNhM2M0NTY0OWI2MjY0NWU5NGFkY2Q4NXAyOTU3NzA0OWI1NGFkY2Q4NXAyOTU3NzA@immune-llama-95770.upstash.io:6379";
+const connection = new IORedis(redisUrl, {
   maxRetriesPerRequest: null,
-  tls: {},
+  enableReadyCheck: false,
+  ...(redisUrl.startsWith("rediss:") ? { tls: {} } : {}),
 });
 
 connection.on("connect", () => {

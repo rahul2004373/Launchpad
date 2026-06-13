@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Moon, Sun, ChevronRight, Menu, X } from "lucide-react";
+import { Moon, Sun, ChevronRight, Menu, X, Plus } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -65,6 +65,7 @@ export default function Navbar({ projectName }: NavbarProps) {
   const isLanding = location === "/";
   const isLogin = location === "/login";
   const isDashboard = location.startsWith("/deployments") || location.startsWith("/deploy");
+  const isDashboardPage = location === "/deployments";
 
 
 
@@ -129,21 +130,25 @@ export default function Navbar({ projectName }: NavbarProps) {
           {/* CENTER */}
           {isLanding && (
             <div className="hidden md:flex items-center gap-0.5">
-              {["Product", "Pricing", "Changelog", "Docs"].map((item) => (
-                <Link
-                  key={item}
-                  href={item === "Docs" ? "/docs" : "#"}
-                  className="px-3 py-1.5 text-sm text-muted-foreground
-                    hover:text-foreground hover:bg-foreground/[0.06]
-                    active:bg-foreground/[0.1]
-                    rounded-lg transition-all duration-150 relative group"
-                >
-                  {item}
-                  <span className="absolute bottom-1 left-3 right-3 h-px
-                    bg-foreground/30 scale-x-0 group-hover:scale-x-100
-                    transition-transform duration-200 origin-left" />
-                </Link>
-              ))}
+              {["Pipeline", "Features", "Frameworks", "Docs"].map((item) => {
+                const isHash = item !== "Docs";
+                const LinkTag = isHash ? "a" : Link;
+                return (
+                  <LinkTag
+                    key={item}
+                    href={isHash ? `#${item.toLowerCase()}` : "/docs"}
+                    className="px-3 py-1.5 text-sm text-muted-foreground
+                      hover:text-foreground hover:bg-foreground/[0.06]
+                      active:bg-foreground/[0.1]
+                      rounded-lg transition-all duration-150 relative group"
+                  >
+                    {item}
+                    <span className="absolute bottom-1 left-3 right-3 h-px
+                      bg-foreground/30 scale-x-0 group-hover:scale-x-100
+                      transition-transform duration-200 origin-left" />
+                  </LinkTag>
+                );
+              })}
             </div>
           )}
 
@@ -173,6 +178,8 @@ export default function Navbar({ projectName }: NavbarProps) {
                 <Link href="/deployments">Dashboard</Link>
               </Button>
             )}
+
+            
 
             {!isLogin && (
               <>
@@ -295,18 +302,22 @@ export default function Navbar({ projectName }: NavbarProps) {
         {/* ── Mobile drawer ────────────────────── */}
         {isLanding && mobileOpen && (
           <div className="md:hidden border-t border-border/30 px-3 pb-3 pt-2 flex flex-col gap-0.5">
-            {["Product", "Pricing", "Changelog", "Docs"].map((item) => (
-              <Link
-                key={item}
-                href={item === "Docs" ? "/docs" : "#"}
-                onClick={() => setMobileOpen(false)}
-                className="px-3 py-2.5 text-sm text-muted-foreground
-                  hover:text-foreground hover:bg-foreground/[0.06]
-                  rounded-lg transition-all duration-150"
-              >
-                {item}
-              </Link>
-            ))}
+            {["Pipeline", "Features", "Frameworks", "Docs"].map((item) => {
+              const isHash = item !== "Docs";
+              const LinkTag = isHash ? "a" : Link;
+              return (
+                <LinkTag
+                  key={item}
+                  href={isHash ? `#${item.toLowerCase()}` : "/docs"}
+                  onClick={() => setMobileOpen(false)}
+                  className="px-3 py-2.5 text-sm text-muted-foreground
+                    hover:text-foreground hover:bg-foreground/[0.06]
+                    rounded-lg transition-all duration-150"
+                >
+                  {item}
+                </LinkTag>
+              );
+            })}
             {!isLogin && !user && (
               <>
                 <div className="h-px bg-border/40 my-1" />
